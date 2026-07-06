@@ -1,0 +1,640 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Turkish Draughts (Dama)</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            background-color: #2c3e50;
+            color: #ecf0f1;
+            margin: 0;
+            padding: 20px;
+        }
+        h1 { margin-top: 0; margin-bottom: 10px; }
+        
+        .controls {
+            margin-bottom: 20px;
+            display: flex;
+            gap: 15px;
+            align-items: center;
+            background: #34495e;
+            padding: 10px 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+        }
+        select, button {
+            padding: 8px 12px;
+            font-size: 16px;
+            border-radius: 5px;
+            border: none;
+            cursor: pointer;
+        }
+        button {
+            background-color: #27ae60;
+            color: white;
+            font-weight: bold;
+            transition: background-color 0.2s;
+        }
+        button:hover { background-color: #2ecc71; }
+        
+        #status {
+            font-size: 1.4em;
+            margin-bottom: 15px;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .game-area {
+            display: flex;
+            gap: 30px;
+            align-items: flex-start;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        #board-container {
+            position: relative;
+            width: 480px;
+            height: 480px;
+            border: 4px solid #1a252f;
+            background-color: #ecf0f1;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.5);
+        }
+
+        /* The grid square handles all clicks now */
+        .square {
+            position: absolute;
+            width: 60px;
+            height: 60px;
+            box-sizing: border-box;
+            border: 1px solid #bdc3c7;
+            cursor: pointer;
+        }
+        .square.dark { background-color: #bdc3c7; }
+        .square.light { background-color: #ecf0f1; }
+        .square.highlight { background-color: rgba(46, 204, 113, 0.6); }
+        .square:hover { box-shadow: inset 0 0 10px rgba(0,0,0,0.2); }
+        
+        /* pointer-events: none ensures clicks pass through to the square beneath */
+        .piece {
+            position: absolute;
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            margin: 5px;
+            transition: transform 0.3s ease-in-out;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.4);
+            z-index: 10;
+            pointer-events: none; 
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-weight: bold;
+            font-size: 28px;
+            color: #f1c40f;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+        }
+        .piece.white { background-color: #ecf0f1; border: 2px solid #95a5a6; color: #e74c3c; }
+        .piece.black { background-color: #2c3e50; border: 2px solid #1a252f; }
+        .piece.selected { box-shadow: 0 0 15px 5px #f1c40f; z-index: 20; border-color: #f1c40f; }
+        .piece.taking { z-index: 30; }
+        .piece.removed { transform: scale(0); opacity: 0; }
+
+        /* Sidebar / Scoreboard Styles */
+        .sidebar {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            min-width: 150px;
+        }
+        .score-card {
+            background: #34495e;
+            padding: 20px;
+            border-radius: 8px;
+            text-align: center;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+            position: relative;
+        }
+        .score-card h3 { margin: 0 0 10px 0; font-size: 1.2em; }
+        .score-value {
+            font-size: 2.5em;
+            font-weight: bold;
+            color: #2ecc71;
+            transition: color 0.3s;
+        }
+
+        /* Floating Popup Animation */
+        @keyframes floatUp {
+            0% { transform: translateY(0); opacity: 1; }
+            100% { transform: translateY(-40px); opacity: 0; }
+        }
+        .floating-sub {
+            position: absolute;
+            top: 40px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: rgba(231, 76, 60, 0.9);
+            font-weight: bold;
+            font-size: 2em;
+            animation: floatUp 1.2s ease-out forwards;
+            pointer-events: none;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+        }
+    </style>
+</head>
+<body>
+
+    <h1>Turkish Draughts</h1>
+    
+    <div class="controls">
+        <label for="ai-mode">Opponent:</label>
+        <select id="ai-mode">
+            <option value="0">No AI (2 Player)</option>
+            <option value="1">Easy AI</option>
+            <option value="3" selected>Medium AI</option>
+            <option value="5">Hard AI</option>
+        </select>
+        <button onclick="startGame()">Restart Game</button>
+    </div>
+
+    <div id="status">White's Turn</div>
+
+    <div class="game-area">
+        <div id="board-container"></div>
+        
+        <div class="sidebar">
+            <div class="score-card" id="white-card">
+                <h3>White Pieces</h3>
+                <div class="score-value" id="white-score">16</div>
+            </div>
+            <div class="score-card" id="black-card">
+                <h3>Black Pieces</h3>
+                <div class="score-value" id="black-score">16</div>
+            </div>
+        </div>
+    </div>
+
+<script>
+const BOARD_SIZE = 8;
+const EMPTY = 0, WHITE_MAN = 1, WHITE_KING = 2, BLACK_MAN = -1, BLACK_KING = -2;
+let board = [];
+let turn = 1; // 1 for White, -1 for Black
+let selectedSquare = null;
+let validMoves = [];
+let isAnimating = false;
+
+const container = document.getElementById('board-container');
+const statusEl = document.getElementById('status');
+const whiteScoreEl = document.getElementById('white-score');
+const blackScoreEl = document.getElementById('black-score');
+let piecesDom = {};
+let squaresDom = {};
+
+function initBoard() {
+    board = Array.from({ length: BOARD_SIZE }, () => Array(BOARD_SIZE).fill(EMPTY));
+    for (let r = 1; r <= 2; r++) {
+        for (let c = 0; c < BOARD_SIZE; c++) board[r][c] = BLACK_MAN;
+    }
+    for (let r = 5; r <= 6; r++) {
+        for (let c = 0; c < BOARD_SIZE; c++) board[r][c] = WHITE_MAN;
+    }
+    whiteScoreEl.innerText = "16";
+    blackScoreEl.innerText = "16";
+}
+
+function drawBoard() {
+    container.innerHTML = '';
+    piecesDom = {};
+    squaresDom = {};
+    for (let r = 0; r < BOARD_SIZE; r++) {
+        for (let c = 0; c < BOARD_SIZE; c++) {
+            const sq = document.createElement('div');
+            sq.className = `square ${(r + c) % 2 === 0 ? 'light' : 'dark'}`;
+            sq.style.transform = `translate(${c * 60}px, ${r * 60}px)`;
+            
+            // Squares handle the clicks directly now
+            sq.onclick = () => handleSquareClick(r, c);
+            container.appendChild(sq);
+            squaresDom[`${r},${c}`] = sq;
+
+            if (board[r][c] !== EMPTY) {
+                createPieceDOM(r, c, board[r][c]);
+            }
+        }
+    }
+}
+
+function createPieceDOM(r, c, val) {
+    const p = document.createElement('div');
+    const isWhite = val > 0;
+    const isKing = Math.abs(val) === 2;
+    p.className = `piece ${isWhite ? 'white' : 'black'}`;
+    p.style.transform = `translate(${c * 60}px, ${r * 60}px)`;
+    if (isKing) p.innerHTML = '★';
+    
+    piecesDom[`${r},${c}`] = p;
+    container.appendChild(p);
+}
+
+function updatePieceDOM(r, c, newR, newC, isCapture) {
+    const p = piecesDom[`${r},${c}`];
+    if (!p) return;
+    if (isCapture) p.classList.add('taking');
+    p.style.transform = `translate(${newC * 60}px, ${newR * 60}px)`;
+    
+    // Update key map
+    delete piecesDom[`${r},${c}`];
+    piecesDom[`${newR},${newC}`] = p;
+    
+    setTimeout(() => p.classList.remove('taking'), 300);
+}
+
+function removePieceDOM(r, c) {
+    const p = piecesDom[`${r},${c}`];
+    if (p) {
+        p.classList.add('removed');
+        setTimeout(() => { if(p.parentNode) p.parentNode.removeChild(p); }, 300);
+        delete piecesDom[`${r},${c}`];
+    }
+}
+
+function triggerCaptureAnimation(capturingPlayer, captureCount) {
+    if (captureCount === 0) return;
+    
+    // If White captures, Black loses pieces (and vice versa)
+    const lostPlayer = capturingPlayer * -1;
+    const cardId = lostPlayer === 1 ? 'white-card' : 'black-card';
+    const scoreId = lostPlayer === 1 ? 'white-score' : 'black-score';
+    
+    const card = document.getElementById(cardId);
+    
+    // Create the floating red text
+    const floatEl = document.createElement('div');
+    floatEl.className = 'floating-sub';
+    floatEl.innerText = `-${captureCount}`;
+    card.appendChild(floatEl);
+    
+    // Clean up DOM and update total *after* the animation finishes
+    setTimeout(() => {
+        if (floatEl.parentNode) floatEl.parentNode.removeChild(floatEl);
+        
+        // Count actual remaining pieces on board to ensure absolute truth
+        let currentCount = 0;
+        for (let r = 0; r < BOARD_SIZE; r++) {
+            for (let c = 0; c < BOARD_SIZE; c++) {
+                if (lostPlayer === 1 && board[r][c] > 0) currentCount++;
+                if (lostPlayer === -1 && board[r][c] < 0) currentCount++;
+            }
+        }
+        document.getElementById(scoreId).innerText = currentCount;
+    }, 1200);
+}
+
+// Direction vectors
+const DIRS_WHITE = [[-1, 0], [0, -1], [0, 1]]; 
+const DIRS_BLACK = [[1, 0], [0, -1], [0, 1]];
+const DIRS_KING = [[-1, 0], [1, 0], [0, -1], [0, 1]];
+
+function inBounds(r, c) { return r >= 0 && r < BOARD_SIZE && c >= 0 && c < BOARD_SIZE; }
+
+// Enforces mandatory captures and maximum capture rule
+function getAllValidMoves(state, player) {
+    let moves = [];
+    let maxCaptures = 0;
+
+    for (let r = 0; r < BOARD_SIZE; r++) {
+        for (let c = 0; c < BOARD_SIZE; c++) {
+            if (state[r][c] * player > 0) {
+                const pieceMoves = getPieceMoves(state, r, c, player);
+                for (let m of pieceMoves) {
+                    if (m.captures.length > maxCaptures) {
+                        maxCaptures = m.captures.length;
+                        moves = [m];
+                    } else if (m.captures.length === maxCaptures) {
+                        moves.push(m);
+                    }
+                }
+            }
+        }
+    }
+    return moves;
+}
+
+function getPieceMoves(state, r, c, player) {
+    let piece = state[r][c];
+    let isKing = Math.abs(piece) === 2;
+    let moves = [];
+    let maxCaps = 0;
+
+    function exploreCaptures(currR, currC, currentPath, currentCaptures, visitedState) {
+        let foundFurther = false;
+        const dirs = isKing ? DIRS_KING : (player === 1 ? DIRS_WHITE : DIRS_BLACK);
+
+        for (let [dr, dc] of dirs) {
+            let step = 1;
+            while (true) {
+                let nr = currR + dr * step;
+                let nc = currC + dc * step;
+                if (!inBounds(nr, nc)) break;
+
+                let target = visitedState[nr][nc];
+                if (target * player > 0) break; // Own piece blocks
+                
+                if (target * player < 0) { // Found Opponent
+                    let jumpR = nr + dr, jumpC = nc + dc;
+                    while (inBounds(jumpR, jumpC) && visitedState[jumpR][jumpC] === EMPTY) {
+                        foundFurther = true;
+                        
+                        let nextPath = [...currentPath, {r: jumpR, c: jumpC}];
+                        let nextCaps = [...currentCaptures, {r: nr, c: nc}];
+                        
+                        let newState = visitedState.map(row => [...row]);
+                        newState[currR][currC] = EMPTY;
+                        newState[nr][nc] = EMPTY; 
+                        newState[jumpR][jumpC] = piece;
+
+                        exploreCaptures(jumpR, jumpC, nextPath, nextCaps, newState);
+                        
+                        if (!isKing) break; 
+                        jumpR += dr; jumpC += dc;
+                    }
+                    break; 
+                }
+                if (!isKing) break; 
+                step++;
+            }
+        }
+
+        if (!foundFurther && currentCaptures.length > 0) {
+            if (currentCaptures.length > maxCaps) {
+                maxCaps = currentCaptures.length;
+                moves = [{from: {r, c}, to: currentPath[currentPath.length-1], path: currentPath, captures: currentCaptures}];
+            } else if (currentCaptures.length === maxCaps) {
+                moves.push({from: {r, c}, to: currentPath[currentPath.length-1], path: currentPath, captures: currentCaptures});
+            }
+        }
+    }
+
+    exploreCaptures(r, c, [], [], state.map(row => [...row]));
+
+    // Simple moves if no captures
+    if (moves.length === 0) {
+        const dirs = isKing ? DIRS_KING : (player === 1 ? DIRS_WHITE : DIRS_BLACK);
+        for (let [dr, dc] of dirs) {
+            let step = 1;
+            while (true) {
+                let nr = r + dr * step;
+                let nc = c + dc * step;
+                if (!inBounds(nr, nc) || state[nr][nc] !== EMPTY) break;
+                
+                moves.push({from: {r, c}, to: {r: nr, c: nc}, path: [{r: nr, c: nc}], captures: []});
+                if (!isKing) break;
+                step++;
+            }
+        }
+    }
+    return moves;
+}
+
+function handleSquareClick(r, c) {
+    if (isAnimating) return;
+    const aiDepth = parseInt(document.getElementById('ai-mode').value);
+    if (aiDepth > 0 && turn === -1) return; 
+
+    let allMoves = getAllValidMoves(board, turn);
+    
+    // Select own piece
+    if (board[r][c] * turn > 0) {
+        let pieceMoves = allMoves.filter(m => m.from.r === r && m.from.c === c);
+        
+        // Enforce maximum capture rule visually (prevent selecting weak pieces)
+        if (allMoves.length > 0 && allMoves[0].captures.length > 0 && pieceMoves.length === 0) {
+            return;
+        }
+        
+        if (selectedSquare) {
+            let oldP = piecesDom[`${selectedSquare.r},${selectedSquare.c}`];
+            if(oldP) oldP.classList.remove('selected');
+        }
+        selectedSquare = {r, c};
+        piecesDom[`${r},${c}`].classList.add('selected');
+        
+        Object.values(squaresDom).forEach(sq => sq.classList.remove('highlight'));
+        pieceMoves.forEach(m => {
+            const sq = squaresDom[`${m.to.r},${m.to.c}`];
+            if (sq) sq.classList.add('highlight');
+        });
+        validMoves = pieceMoves;
+        return;
+    }
+
+    // Move to valid empty square
+    if (selectedSquare) {
+        let move = validMoves.find(m => m.to.r === r && m.to.c === c);
+        if (move) {
+            let capturingPlayer = turn; // Record who made the move before executing it
+            executeMove(move, () => {
+                triggerCaptureAnimation(capturingPlayer, move.captures.length);
+                checkWin();
+                if (aiDepth > 0 && turn === -1) setTimeout(() => makeAIMove(aiDepth), 600);
+            });
+        }
+    }
+}
+
+function executeMove(move, callback) {
+    isAnimating = true;
+    let oldP = piecesDom[`${move.from.r},${move.from.c}`];
+    if(oldP) oldP.classList.remove('selected');
+    Object.values(squaresDom).forEach(sq => sq.classList.remove('highlight'));
+    selectedSquare = null;
+    validMoves = [];
+
+    let step = 0;
+    let currR = move.from.r, currC = move.from.c;
+    
+    function animateStep() {
+        if (step < move.path.length) {
+            let nextR = move.path[step].r;
+            let nextC = move.path[step].c;
+            
+            if (move.captures.length > step) {
+                let cap = move.captures[step];
+                board[cap.r][cap.c] = EMPTY;
+                removePieceDOM(cap.r, cap.c);
+            }
+
+            updatePieceDOM(currR, currC, nextR, nextC, move.captures.length > 0);
+            currR = nextR; currC = nextC;
+            step++;
+            setTimeout(animateStep, 350);
+        } else {
+            finalizeMove(move, callback);
+        }
+    }
+    
+    animateStep();
+}
+
+function finalizeMove(move, callback) {
+    let piece = board[move.from.r][move.from.c];
+    board[move.from.r][move.from.c] = EMPTY;
+    
+    let r = move.to.r;
+    let c = move.to.c;
+    
+    // Promotion Logic with Star indicator
+    if (piece === WHITE_MAN && r === 0) { 
+        piece = WHITE_KING; 
+        if (piecesDom[`${r},${c}`]) piecesDom[`${r},${c}`].innerHTML = '★';
+    }
+    if (piece === BLACK_MAN && r === BOARD_SIZE - 1) { 
+        piece = BLACK_KING; 
+        if (piecesDom[`${r},${c}`]) piecesDom[`${r},${c}`].innerHTML = '★';
+    }
+    
+    board[r][c] = piece;
+
+    turn *= -1;
+    updateStatus();
+    isAnimating = false;
+    if(callback) callback();
+}
+
+function updateStatus() {
+    statusEl.innerText = turn === 1 ? "White's Turn" : "Black's Turn";
+    statusEl.style.color = turn === 1 ? "#ecf0f1" : "#e74c3c";
+}
+
+function checkWin() {
+    let whiteCount = 0, blackCount = 0;
+    for (let r = 0; r < BOARD_SIZE; r++) {
+        for (let c = 0; c < BOARD_SIZE; c++) {
+            if (board[r][c] > 0) whiteCount++;
+            else if (board[r][c] < 0) blackCount++;
+        }
+    }
+    let moves = getAllValidMoves(board, turn);
+    
+    if (whiteCount === 0 || (turn === 1 && moves.length === 0)) {
+        statusEl.innerText = "Black Wins!";
+        turn = 0;
+    } else if (blackCount === 0 || (turn === -1 && moves.length === 0)) {
+        statusEl.innerText = "White Wins!";
+        turn = 0;
+    }
+}
+
+// --- AI Implementation ---
+
+function evaluateBoard(state) {
+    let score = 0;
+    for (let r = 0; r < BOARD_SIZE; r++) {
+        for (let c = 0; c < BOARD_SIZE; c++) {
+            let val = state[r][c];
+            if (val === WHITE_MAN) score += 10;
+            else if (val === WHITE_KING) score += 30;
+            else if (val === BLACK_MAN) score -= 10;
+            else if (val === BLACK_KING) score -= 30;
+        }
+    }
+    return score;
+}
+
+function simulateMove(state, move) {
+    let newState = state.map(row => [...row]);
+    let piece = newState[move.from.r][move.from.c];
+    newState[move.from.r][move.from.c] = EMPTY;
+    
+    for (let cap of move.captures) {
+        newState[cap.r][cap.c] = EMPTY;
+    }
+    
+    let r = move.to.r;
+    if (piece === WHITE_MAN && r === 0) piece = WHITE_KING;
+    if (piece === BLACK_MAN && r === BOARD_SIZE - 1) piece = BLACK_KING;
+    
+    newState[r][move.to.c] = piece;
+    return newState;
+}
+
+function minimax(state, depth, alpha, beta, isMaximizing) {
+    let player = isMaximizing ? 1 : -1;
+    let moves = getAllValidMoves(state, player);
+    
+    if (depth === 0 || moves.length === 0) return evaluateBoard(state);
+
+    if (isMaximizing) {
+        let maxEval = -Infinity;
+        for (let move of moves) {
+            let score = minimax(simulateMove(state, move), depth - 1, alpha, beta, false);
+            maxEval = Math.max(maxEval, score);
+            alpha = Math.max(alpha, score);
+            if (beta <= alpha) break;
+        }
+        return maxEval;
+    } else {
+        let minEval = Infinity;
+        for (let move of moves) {
+            let score = minimax(simulateMove(state, move), depth - 1, alpha, beta, true);
+            minEval = Math.min(minEval, score);
+            beta = Math.min(beta, score);
+            if (beta <= alpha) break;
+        }
+        return minEval;
+    }
+}
+
+function makeAIMove(depth) {
+    if (turn !== -1) return;
+    let moves = getAllValidMoves(board, -1);
+    if (moves.length === 0) { checkWin(); return; }
+
+    let bestMove = null;
+    if (depth === 1) {
+        bestMove = moves[Math.floor(Math.random() * moves.length)];
+    } else {
+        let minEval = Infinity;
+        for (let move of moves) {
+            let score = minimax(simulateMove(board, move), depth - 1, -Infinity, Infinity, true);
+            if (score < minEval || (score === minEval && Math.random() > 0.5)) {
+                minEval = score;
+                bestMove = move;
+            }
+        }
+    }
+
+    if (bestMove) {
+        let p = piecesDom[`${bestMove.from.r},${bestMove.from.c}`];
+        if(p) p.classList.add('selected');
+        
+        setTimeout(() => {
+            executeMove(bestMove, () => {
+                triggerCaptureAnimation(-1, bestMove.captures.length);
+                checkWin();
+            });
+        }, 400);
+    }
+}
+
+function startGame() {
+    initBoard();
+    drawBoard();
+    turn = 1;
+    isAnimating = false;
+    selectedSquare = null;
+    validMoves = [];
+    updateStatus();
+}
+
+// Start Game Automatically
+startGame();
+</script>
+</body>
+</html>
