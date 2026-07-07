@@ -1,6 +1,6 @@
 # Aldama (Middle Eastern Board Game):
 
-- Turkish Droughts is very similar to checkers. It's a game that orignated from the Middle East. The goal of the game is for the user to remove all of the opponent's pieces using the
+- Aldama/Turkish Draughts is very similar to checkers. It's a game that orignated from the Middle East. The goal of the game is for the user to remove all of the opponent's pieces using the
   movement restrictions for each of the pieces.
 
 - There's only two types of pieces: normal pieces and king pieces. Normal pieces can only move forward by 1 or 2 squares. King pieces, pieces that have made it across
