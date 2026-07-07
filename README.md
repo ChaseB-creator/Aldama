@@ -3,7 +3,7 @@
 - Aldama/Turkish Draughts is very similar to checkers. It's a game that orignated from the Middle East. The goal of the game is for the user to remove all of the opponent's pieces using the
   movement restrictions for each of the pieces.
 
-- There's only two types of pieces: normal pieces and king pieces. Normal pieces can only move forward by 1 or 2 squares. King pieces, pieces that have made it across
+- There's only two types of pieces: normal pieces and king pieces. Normal pieces can only move forward by 1 square. King pieces, pieces that have made it across
   the board to the other side, these pieces can move orthogonally, meaning they can move in the same row and diagonally adjacent. 
 
 - Once one of the player is able to get a piece to the opposite side of the board, the piece becomes a lot more versatile and gains the ability to move across the whole board
