@@ -33,6 +33,8 @@
   Simply download the zip for this repo and extract the files onto your machine. In the package it will JUST be the html file, which then you can open the file in your
   browser and the game will start.
 
+  You Can also play the game by going to this repo's GitHub Pages attached on this repo. This is the quickest way to play the game without downloading anything.
+
   Note - ALL of the game is played locally in your browser, and nothing is stored or downloaded other than the html file to boot the game itself. In other words, there's no
   saving game progress or playing from previous unfinished matches. 
 
